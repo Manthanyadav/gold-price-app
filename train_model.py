@@ -30,7 +30,7 @@ X = df[['open','high','low','ma_7','ma_30','day','month','year']]
 y = df['close']
 
 # Train model
-model = RandomForestRegressor(n_estimators=200)
+model = RandomForestRegressor(n_estimators=50, n_jobs=1, random_state=42)
 model.fit(X, y)
 
 # Save model
