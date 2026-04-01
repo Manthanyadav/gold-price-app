@@ -1,3 +1,12 @@
-model.pkl
+# Python artifacts
 __pycache__/
-*.pyc
+*.py[cod]
+*.pyo
+*.pyd
+
+# Data and model files
+model.pkl
+*.csv
+
+# IDE files
+.vscode/
