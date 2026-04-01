@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Gold AI Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+            color: white;
+        }
+
+        .header {
+            padding: 20px;
+            text-align: center;
+            font-size: 28px;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            padding: 20px;
+            gap: 20px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(12px);
+            border-radius: 20px;
+            padding: 20px;
+            width: 350px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+            transition: 0.3s;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+        }
+
+        .price {
+            font-size: 40px;
+            margin-top: 10px;
+            color: gold;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 10px;
+            border: none;
+            outline: none;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(45deg, gold, orange);
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        button:hover {
+            transform: scale(1.05);
+        }
+
+        canvas {
+            width: 100% !important;
+            height: 300px !important;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 20px;
+            opacity: 0.7;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="header">
+    💰 Gold AI Dashboard
+</div>
+
+<div class="container">
+
+    <!-- Live Price -->
+    <div class="card">
+        <h2>Live Gold Price</h2>
+        <div class="price">₹ <span id="price">{{ live_price }}</span></div>
+    </div>
+
+    <!-- Prediction -->
+    <div class="card">
+        <h2>🔮 AI Prediction</h2>
+
+        <form action="/predict" method="post">
+            <input type="text" name="Open" placeholder="Open Price">
+            <input type="text" name="High" placeholder="High Price">
+            <input type="text" name="Low" placeholder="Low Price">
+            <button type="submit">Predict Now</button>
+        </form>
+    </div>
+
+</div>
+
+<!-- Chart -->
+<div class="container">
+    <div class="card" style="width: 80%;">
+        <h2>📈 Live Price Chart</h2>
+        <canvas id="goldChart"></canvas>
+    </div>
+</div>
+
+<div class="footer">
+    🚀 Powered by AI | Gold Prediction System
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+
+<script>
+var options = {
+    chart: { type: 'candlestick', height: 350 },
+    series: [{
+        data: []
+    }],
+    xaxis: { type: 'datetime' }
+};
+
+var chart = new ApexCharts(document.querySelector("#goldChart"), options);
+chart.render();
+
+// Fetch data
+setInterval(() => {
+    fetch('/live-price')
+    .then(res => res.json())
+    .then(data => {
+
+        let newData = {
+            x: new Date(),
+            y: [data.price, data.price+5, data.price-5, data.price]
+        };
+
+        chart.appendData([{ data: [newData] }]);
+    });
+
+}, 4000);
+</script>
+<script>
+const canvas = document.getElementById("goldChart");
+
+if (!canvas) {
+    console.error("❌ Canvas not found");
+} else {
+
+    const ctx = canvas.getContext("2d");
+
+    let prices = [];
+    let labels = [];
+
+    const chart = new Chart(ctx, {
+        type: "line",
+        data: {
+            labels: labels,
+            datasets: [{
+                label: "Gold Price",
+                data: prices,
+                borderColor: "gold",
+                borderWidth: 2
+            }]
+        }
+    });
+
+    async function updateChart() {
+        try {
+            const res = await fetch("/live-price");
+            const data = await res.json();
+
+            console.log("DATA:", data);  // 👈 DEBUG
+
+            labels.push(new Date().toLocaleTimeString());
+            prices.push(data.price);
+
+            if (labels.length > 10) {
+                labels.shift();
+                prices.shift();
+            }
+
+            chart.update();
+
+        } catch (e) {
+            console.error("Fetch error:", e);
+        }
+    }
+
+    setInterval(updateChart, 3000);
+    updateChart();
+}
+</script>
+</body>
+</html>
