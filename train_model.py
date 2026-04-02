@@ -3,12 +3,10 @@ from sklearn.ensemble import RandomForestRegressor
 import pickle
 
 # Load dataset
-df = pd.read_csv("gold_data.csv", delimiter=';')
+df = pd.read_csv("gold_data.csv", sep=";")
 
-# Clean column names
+# Clean columns
 df.columns = df.columns.str.strip().str.lower()
-
-print("Columns:", df.columns)
 
 # Convert date
 df['date'] = pd.to_datetime(df['date'])
@@ -22,18 +20,22 @@ df['year'] = df['date'].dt.year
 df['ma_7'] = df['close'].rolling(7).mean()
 df['ma_30'] = df['close'].rolling(30).mean()
 
-# Remove null rows
 df = df.dropna()
 
-# ✅ DEFINE X and y (IMPORTANT)
+# Features & target
 X = df[['open','high','low','ma_7','ma_30','day','month','year']]
 y = df['close']
 
-# Train model
-model = RandomForestRegressor(n_estimators=50, n_jobs=1, random_state=42)
+# 🔥 OPTIMIZED MODEL (SMALL SIZE)
+model = RandomForestRegressor(
+    n_estimators=20,   # 🔽 reduce trees
+    max_depth=10,      # 🔽 limit depth
+    random_state=42
+)
+
 model.fit(X, y)
 
 # Save model
 pickle.dump(model, open("model.pkl", "wb"))
 
-print("✅ Model trained successfully")
+print("✅ Small model trained successfully")
