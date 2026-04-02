@@ -3,6 +3,7 @@
 <head>
     <title>Gold AI Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 
     <style>
         * {
@@ -22,7 +23,6 @@
             text-align: center;
             font-size: 28px;
             font-weight: bold;
-            letter-spacing: 1px;
         }
 
         .container {
@@ -40,11 +40,6 @@
             padding: 20px;
             width: 350px;
             box-shadow: 0 8px 30px rgba(0,0,0,0.4);
-            transition: 0.3s;
-        }
-
-        .card:hover {
-            transform: translateY(-5px);
         }
 
         .price {
@@ -59,7 +54,6 @@
             margin: 10px 0;
             border-radius: 10px;
             border: none;
-            outline: none;
         }
 
         button {
@@ -70,22 +64,11 @@
             background: linear-gradient(45deg, gold, orange);
             font-weight: bold;
             cursor: pointer;
-            transition: 0.3s;
-        }
-
-        button:hover {
-            transform: scale(1.05);
         }
 
         canvas {
             width: 100% !important;
             height: 300px !important;
-        }
-
-        .footer {
-            text-align: center;
-            margin-top: 20px;
-            opacity: 0.7;
         }
     </style>
 </head>
@@ -116,6 +99,13 @@
         </form>
     </div>
 
+    <!-- ALERT BOX -->
+    <div class="card">
+        <h2>🔔 Set Alert</h2>
+        <input type="number" id="alertPrice" placeholder="Enter alert price">
+        <button onclick="setAlert()">Set Alert</button>
+    </div>
+
 </div>
 
 <!-- Chart -->
@@ -126,90 +116,87 @@
     </div>
 </div>
 
-<div class="footer">
-    🚀 Powered by AI | Gold Prediction System
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
-
 <script>
-var options = {
-    chart: { type: 'candlestick', height: 350 },
-    series: [{
-        data: []
-    }],
-    xaxis: { type: 'datetime' }
-};
+let prices = [];
+let labels = [];
 
-var chart = new ApexCharts(document.querySelector("#goldChart"), options);
-chart.render();
+const ctx = document.getElementById("goldChart").getContext("2d");
 
-// Fetch data
-setInterval(() => {
-    fetch('/live-price')
-    .then(res => res.json())
-    .then(data => {
-
-        let newData = {
-            x: new Date(),
-            y: [data.price, data.price+5, data.price-5, data.price]
-        };
-
-        chart.appendData([{ data: [newData] }]);
-    });
-
-}, 4000);
-</script>
-<script>
-const canvas = document.getElementById("goldChart");
-
-if (!canvas) {
-    console.error("❌ Canvas not found");
-} else {
-
-    const ctx = canvas.getContext("2d");
-
-    let prices = [];
-    let labels = [];
-
-    const chart = new Chart(ctx, {
-        type: "line",
-        data: {
-            labels: labels,
-            datasets: [{
-                label: "Gold Price",
-                data: prices,
-                borderColor: "gold",
-                borderWidth: 2
-            }]
-        }
-    });
-
-    async function updateChart() {
-        try {
-            const res = await fetch("/live-price");
-            const data = await res.json();
-
-            console.log("DATA:", data);  // 👈 DEBUG
-
-            labels.push(new Date().toLocaleTimeString());
-            prices.push(data.price);
-
-            if (labels.length > 10) {
-                labels.shift();
-                prices.shift();
-            }
-
-            chart.update();
-
-        } catch (e) {
-            console.error("Fetch error:", e);
-        }
+const chart = new Chart(ctx, {
+    type: "line",
+    data: {
+        labels: labels,
+        datasets: [{
+            label: "Gold Price",
+            data: prices,
+            borderColor: "gold",
+            borderWidth: 2
+        }]
     }
+});
 
-    setInterval(updateChart, 3000);
-    updateChart();
+// 🔥 FETCH + ALERT + UPDATE
+async function fetchPrice() {
+    try {
+        const res = await fetch("/live-price");
+        const data = await res.json();
+
+        document.getElementById("price").innerText = data.price;
+
+        // chart update
+        labels.push(new Date().toLocaleTimeString());
+        prices.push(data.price);
+
+        if (labels.length > 10) {
+            labels.shift();
+            prices.shift();
+        }
+
+        chart.update();
+
+        // 🚨 ALERT POPUP
+        if (data.alerts.length > 0) {
+            data.alerts.forEach(a => {
+                alert("🚨 Gold Price Reached ₹" + a);
+
+                if (Notification.permission === "granted") {
+                    new Notification("Gold Alert 🚨", {
+                        body: "Price reached ₹" + a
+                    });
+                }
+            });
+        }
+
+    } catch (e) {
+        console.error(e);
+    }
 }
+
+// 🔔 SET ALERT
+function setAlert() {
+    let price = document.getElementById("alertPrice").value;
+
+    fetch('/set-alert', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: "price=" + price
+    })
+    .then(res => res.json())
+    .then(data => alert(data.message));
+}
+
+// notification permission
+if (Notification.permission !== "granted") {
+    Notification.requestPermission();
+}
+
+// auto refresh
+setInterval(fetchPrice, 4000);
+fetchPrice();
+
 </script>
+
 </body>
 </html>

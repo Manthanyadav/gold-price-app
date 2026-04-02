@@ -5,73 +5,81 @@ import os
 
 app = Flask(__name__)
 
-# =========================
-# LOAD / AUTO TRAIN MODEL
-# =========================
-
 MODEL_PATH = "model.pkl"
 
 if not os.path.exists(MODEL_PATH):
-    print("⚡ model.pkl not found → Training...")
     import train_model
 
 model = pickle.load(open(MODEL_PATH, "rb"))
 
-# =========================
-# ALERT SYSTEM
-# =========================
-
 alerts = []
+last_price = 0
+
 
 def check_alert(current_price):
+    global alerts
     triggered = []
+
     for alert in alerts:
         if current_price >= alert:
             triggered.append(alert)
-    
+
     for a in triggered:
         alerts.remove(a)
-        print(f"🚨 ALERT TRIGGERED: ₹{a}")
 
-# =========================
-# LIVE GOLD API
-# =========================
+    return triggered
+
 
 def get_live_gold_price():
+    global last_price
+
     try:
         url = "https://api.gold-api.com/price/XAU"
-        response = requests.get(url, timeout=5)
+        res = requests.get(url, timeout=5)
 
-        if response.status_code != 200:
-            return 0
+        if res.status_code != 200:
+            return last_price if last_price else 65000
 
-        data = response.json()
+        data = res.json()
+        usd_price = data.get("price", 0)
 
-        usd_price = data.get('price', 0)
-        usd_to_inr = 83
+        if usd_price == 0:
+            return last_price if last_price else 65000
 
-        price = (usd_price * usd_to_inr) / 31.103
-        price = round(price, 2)
+        usd_to_inr = 83.5
 
-        check_alert(price)
-        return price
+        price_per_gram = (usd_price * usd_to_inr) / 31.103
 
-    except Exception as e:
-        print("API Error:", e)
-        return 0
+        price_10g = price_per_gram * 10
 
-# =========================
-# ROUTES
-# =========================
+        price_24k = price_10g * 1.15
+
+        final_price = round(price_24k, 2)
+
+        last_price = final_price
+
+        return final_price
+
+    except:
+        return last_price if last_price else 65000
+
 
 @app.route('/')
 def home():
     live_price = get_live_gold_price()
     return render_template('index.html', live_price=live_price)
 
+
 @app.route('/live-price')
 def live_price():
-    return jsonify({"price": get_live_gold_price()})
+    price = get_live_gold_price()
+    triggered_alerts = check_alert(price)
+
+    return jsonify({
+        "price": price,
+        "alerts": triggered_alerts
+    })
+
 
 @app.route('/predict', methods=['POST'])
 def predict():
@@ -80,10 +88,9 @@ def predict():
         High = float(request.form['High'])
         Low = float(request.form['Low'])
 
-        # simple feature logic
         features = [[Open, High, Low, Open, Open, 1, 1, 2024]]
-
         prediction = model.predict(features)[0]
+
         live_price = get_live_gold_price()
 
         return render_template(
@@ -95,7 +102,7 @@ def predict():
     except Exception as e:
         return f"❌ Error: {e}"
 
-# 🔔 SET ALERT
+
 @app.route('/set-alert', methods=['POST'])
 def set_alert():
     try:
@@ -105,9 +112,6 @@ def set_alert():
     except:
         return jsonify({"error": "Invalid input"})
 
-# =========================
-# RUN APP
-# =========================
 
 if __name__ == "__main__":
-    app.run()
+    app.run(debug=True)
